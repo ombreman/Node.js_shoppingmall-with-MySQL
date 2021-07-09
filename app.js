@@ -1,7 +1,8 @@
 const express = require("express");
 const mongoose = require("mongoose");
+const { Op } = require("sequelize");
 const jwt = require("jsonwebtoken"); // add jwt token module
-const User = require("./models/user");
+const { User } = require("./models");
 const authMiddleware = require("./middlewares/auth-middleware"); // add middleware for arthorisation
 
 // connect mongodb
@@ -28,8 +29,10 @@ router.post("/users", async (req, res) => {
     }
 
     // validate email and nickname
-    const existUsers = await User.find({ // check whether nickname and email are in DB
-        $or: [{ email }, { nickname }],
+    const existUsers = await User.findAll({ // check whether nickname and email are in DB
+        where: { // condition of search
+            [Op.or]: [{ nickname }, { email }],
+        },
     });
     if (existUsers.length) { // get every info meeting conditions
         res.status(400).send({ // send error 400 message if already exist
@@ -38,8 +41,7 @@ router.post("/users", async (req, res) => {
         return; // finish code if error occurs
     }
 
-    const user = new User({ email, nickname, password }); // save user in DB
-    await user.save();
+    await User.create({ email, nickname, password }); // save user in DB
 
     res.status(201).send({}); // send success message, code 201 is suitable based on REST API rules
 });
@@ -49,7 +51,7 @@ router.post("/users", async (req, res) => {
 router.post("/auth", async(req, res) => { // 왜 POST? 입장권(token)을 그때 그때 생산한다. GET으로도 가능하지만 body에 정보를 못 싣고 주소에 치기때문에 보안에 취약
     const { email, password } = req.body; // take email and password
 
-    const user = await User.findOne({ email, password }).exec(); // 일치하는 유저가 있는지 찾는다.
+    const user = await User.findOne({ where: { email, password } }); // 일치하는 유저가 있는지 찾는다.
 
     if (!user) { // if no corresponding user,
         res.status(400).send({ // send an error message
